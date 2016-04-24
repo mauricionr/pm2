@@ -49,10 +49,30 @@ function getConf4() {
   });
 }
 
+var async = require('async');
+
+function deleteAll(data, cb) {
+  var processes = God.getFormatedProcesses();
+
+  async.eachLimit(processes, cst.CONCURRENT_ACTIONS, function(proc, next) {
+    console.log('Deleting process %s', proc.pm2_env.pm_id);
+    God.deleteProcessId(proc.pm2_env.pm_id, function() {
+      return next();
+    });
+    return false;
+  }, function(err) {
+    if (err) return cb(God.logAndGenerateError(err), {});
+
+    God.clusters_db = null;
+    God.clusters_db = {};
+    return cb(null, []);
+  });
+}
+
 
 describe('God', function() {
   before(function(done) {
-    God.deleteAll({}, function(err, dt) {
+    deleteAll({}, function(err, dt) {
       setTimeout(done, 1000);
     });
   });
@@ -66,43 +86,14 @@ describe('God', function() {
     God.should.have.property('getSystemData');
     God.should.have.property('getFormatedProcesses');
     God.should.have.property('checkProcess');
-    God.should.have.property('stopAll');
     God.should.have.property('reloadLogs');
     God.should.have.property('stopProcessId');
-    God.should.have.property('reloadProcessName');
     God.should.have.property('sendSignalToProcessId');
     God.should.have.property('sendSignalToProcessName');
   });
 
-  describe('Special functions for God', function() {
-    before(function(done) {
-      God.deleteAll({}, function(err, dt) {
-        setTimeout(done, 1000);
-      });
-    });
-
-    it('should kill a process by name', function(done) {
-      God.prepare(getConf(), function(err, procs) {
-	      God.getFormatedProcesses().length.should.equal(2);
-
-        God.stopProcessName('echo', function() {
-          God.getFormatedProcesses().length.should.equal(2);
-          God.deleteAll({}, function() {
-            setTimeout(done, 1000);
-          });
-        });
-      });
-    });
-  });
-
   describe('One process', function() {
     var proc, pid;
-
-    before(function(done) {
-      God.deleteAll({}, function(err, dt) {
-        setTimeout(done, 1000);
-      });
-    });
 
     it('should fork one process', function(done) {
       God.prepare(getConf(), function(err, procs) {
@@ -119,7 +110,7 @@ describe('God', function() {
     var clu, pid;
 
     before(function(done) {
-      God.deleteAll({}, function(err, dt) {
+      deleteAll({}, function(err, dt) {
         setTimeout(done, 1000);
       });
     });
@@ -134,10 +125,9 @@ describe('God', function() {
     });
 
     it('should stop a process and keep in database on state stopped', function(done) {
-      God.stopProcessId(clu.pm2_env.pm_id, function(err, dt) {
-        var proc = God.findProcessById(clu.pm2_env.pm_id);
+      God.stopProcessId(clu.pm2_env.pm_id, function(err, proc) {
         proc.pm2_env.status.should.be.equal('stopped');
-        God.checkProcess(proc.process.pid).should.be.equal(false);
+        God.checkProcess(proc.pid).should.be.equal(false);
         done();
       });
     });
@@ -151,47 +141,13 @@ describe('God', function() {
       });
     });
 
-    it('should stop this process by name and keep in db on state stopped', function(done) {
-      God.stopProcessName(clu.pm2_env.name, function(err, dt) {
-        var proc = God.findProcessById(clu.pm2_env.pm_id);
-        proc.pm2_env.status.should.be.equal('stopped');
-        God.checkProcess(proc.process.pid).should.be.equal(false);
-        done();
-      });
-    });
-
-    it('should restart the same process by NAME and set it as state online and be up', function(done) {
-      God.restartProcessName(clu.pm2_env.name, function(err, dt) {
-        var proc = God.findProcessById(clu.pm2_env.pm_id);
-        proc.pm2_env.status.should.be.equal('online');
-        God.checkProcess(proc.process.pid).should.be.equal(true);
-        done();
-      });
-    });
-
     it('should stop and delete a process id', function(done) {
       var old_pid = clu.pid;
       God.deleteProcessId(clu.pm2_env.pm_id, function(err, dt) {
         var proc = God.findProcessById(clu.pm2_env.pm_id);
         God.checkProcess(old_pid).should.be.equal(false);
-        dt.length.should.be.equal(1);
+        God.getFormatedProcesses().length.should.be.equal(1);
         done();
-      });
-    });
-
-    it('should start stop and delete the process name from database', function(done) {
-      God.prepare(getConf(), function(err, _clu) {
-        pid = _clu[0].pid;
-	      _clu[0].pm2_env.status.should.be.equal('online');
-        var old_pid = _clu[0].pid;
-        God.deleteProcessName(_clu[0].pm2_env.name, function(err, dt) {
-          setTimeout(function() {
-            var proc = God.findProcessById(clu.pm2_env.pm_id);
-            should(proc == null);
-            God.checkProcess(old_pid).should.be.equal(false);
-            done();
-          }, 100);
-        });
       });
     });
 
@@ -201,7 +157,7 @@ describe('God', function() {
   describe('Reload - cluster', function() {
 
     before(function(done) {
-      God.deleteAll({}, function(err, dt) {
+      deleteAll({}, function(err, dt) {
         setTimeout(done, 1000);
       });
     });
@@ -220,33 +176,19 @@ describe('God', function() {
       });
     });
 
-    it('should restart the same process and set it as state online and be up', function(done) {
-      var processes = God.getFormatedProcesses();
-
-      God.reload({}, function(err, dt) {
-	      var processes = God.getFormatedProcesses();
-
-        processes.length.should.equal(4);
-        processes.forEach(function(proc) {
-          proc.pm2_env.restart_time.should.eql(1);
-        });
-        done();
-      });
-    });
-
   });
 
   describe('Multi launching', function() {
 
     before(function(done) {
-      God.deleteAll({}, function(err, dt) {
+      deleteAll({}, function(err, dt) {
         setTimeout(done, 1000);
       });
     });
 
 
     afterEach(function(done) {
-      God.deleteAll({}, function(err, dt) {
+      deleteAll({}, function(err, dt) {
         setTimeout(done, 1000);
       });
     });

@@ -32,11 +32,11 @@ Starting an application in production mode is as easy as:
 $ pm2 start app.js
 ```
 
-PM2 is constantly assailed by [more than 700 tests](https://travis-ci.org/Unitech/pm2).
+PM2 is constantly assailed by [more than 1000 tests](https://travis-ci.org/Unitech/pm2).
 
 Official website: [http://pm2.keymetrics.io](http://pm2.keymetrics.io)
 
-Works on Linux (stable) & MacOSx (stable) & Windows (bêta).
+Works on Linux (stable) & MacOSx (stable) & Windows (stable).
 
 [![NPM](https://nodei.co/npm/pm2.png?downloads=true&downloadRank=true)](https://nodei.co/npm/pm2/)
 
@@ -280,4 +280,3 @@ Thanks in advance and we hope that you like PM2!
 PM2 is made available under the terms of the GNU Affero General Public License 3.0 (AGPL 3.0).
 For other license [contact us](https://keymetrics.io/contact/).
 
-[![Analytics](https://ga-beacon.appspot.com/UA-51734350-4/Unitech/pm2?pixel)](https://github.com/Unitech/pm2)
